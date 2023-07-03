@@ -1,7 +1,7 @@
 import express from "express";
 import cors from "cors";
 import dayjs from "dayjs";
-import { MongoClient } from "mongodb";
+import { MongoClient, ObjectId } from "mongodb";
 import dotenv from "dotenv";
 import Joi from "joi";
 import { stripHtml } from "string-strip-html";
@@ -179,9 +179,28 @@ app.post("/status", async (req, res) => {
 
     if (!userValid) return res.status(404).send("Usuário não encontrado!");
 
-    const updateStatus = await db
+    await db
       .collection("participants")
       .updateOne({ name: user }, { $set: { lastStatus: Date.now() } });
+    res.sendStatus(200);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+app.delete("/messages/:id", async (req, res) => {
+  const { user } = req.headers;
+  const { id } = req.params;
+
+  try {
+    const message = await db
+      .collection("messages")
+      .findOne({ _id: new ObjectId(id) });
+    console.log(message)
+    if (!message) return res.sendStatus(404);
+    if (message.from !== user) return res.sendStatus(401);
+
+    await db.collection("messages").deleteOne({ _id: new ObjectId(id) });
     res.sendStatus(200);
   } catch (err) {
     res.status(500).send(err.message);
@@ -207,7 +226,7 @@ setInterval(async () => {
       });
     });
   } catch (err) {
-    res.sendStatus(500);
+    res.sendStatus(500).send(err.message);
   }
 }, 15000);
 
