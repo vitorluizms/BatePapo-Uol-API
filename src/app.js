@@ -3,7 +3,7 @@ import cors from "cors";
 import dayjs from "dayjs";
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
-import Joi, { required, valid } from "joi";
+import Joi from "joi";
 
 //Criação do app
 const app = express();
@@ -65,7 +65,6 @@ app.post("/participants", async (req, res) => {
   } catch (err) {
     res.status(500).send(err.message);
   }
-  res.sendStatus(201);
 });
 
 app.get("/participants", async (req, res) => {
@@ -77,33 +76,65 @@ app.get("/participants", async (req, res) => {
   }
 });
 
-app.post("/messages", (req, res) => {
+app.post("/messages", async (req, res) => {
   const { to, text, type } = req.body;
   const { user } = req.headers;
-  const currentHour = dayjs().locale("pt-br").format("HH:mm:ss");
 
-  const bodyMessage = {
-    from: user,
+  const schemaMessage = Joi.object({
+    user: Joi.required(),
+    to: Joi.required().string(),
+    text: Joi.required().string(),
+    type: Joi.required().string().valid("message", "private_message"),
+  });
+
+  const body = {
     to,
     text,
     type,
-    time: currentHour,
+    user,
   };
-  messages.unshift(bodyMessage);
+  const validate = schemaMessage.validate(body, { abortEarly: false });
 
-  return res.sendStatus(201);
+  if (validate) {
+    const errors = validate.error.details.map((detail) => detail.message);
+    return res.status(422).send(errors);
+  }
+
+  try {
+    const userValid = await db
+      .collection("participants")
+      .findOne({ name: user });
+
+    if (!userValid) {
+      return res.sendStatus(422);
+    }
+
+    const currentHour = dayjs().locale("pt-br").format("HH:mm:ss");
+
+    await db.collection("messages").insertOne({
+      from: user,
+      to,
+      text,
+      type,
+      time: currentHour,
+    });
+
+    res.sendStatus(201);
+  } catch (err) {
+    res.sendStatus(500);
+  }
 });
 
-app.get("/messages", (req, res) => {
-  const { user } = req.headers;
-  const { limit } = req.query;
+// app.get("/messages", (req, res) => {
+//   const { user } = req.headers;
+//   const { limit } = req.query;
 
-  res.send(messages);
-});
+//   res.send(messages);
+// });
 
-app.post("/status", (req, res) => {
-  const { user } = req.headers;
-});
+// app.post("/status", (req, res) => {
+//   const { user } = req.headers;
+// });
 
 const PORT = 5000;
 app.listen(PORT, () => {
