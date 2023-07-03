@@ -150,7 +150,7 @@ app.get("/messages", async (req, res) => {
         .collection("messages")
         .find({ $or: [{ to: "Todos" }, { to: user }, { from: user }], })
         .toArray();
-      return res.status(201).send(messages);
+      return res.status(200).send(messages);
     }
     console.log(limit);
     const messages = await db
@@ -158,7 +158,7 @@ app.get("/messages", async (req, res) => {
       .find({ $or: [{ to: "Todos" }, { to: user }, { from: user }], })
       .limit(Number(limit))
       .toArray();
-    res.status(201).send(messages);
+    res.status(200).send(messages);
   } catch (err) {
     res.status(500).send(err.message);
   }
