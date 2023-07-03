@@ -72,7 +72,7 @@ app.get("/participants", async (req, res) => {
     const usersList = await db.collection("participants").find().toArray();
     res.status(200).send(usersList);
   } catch (err) {
-    res.sendStatus(500);
+    res.status(500).send(err.message);
   }
 });
 
@@ -82,9 +82,9 @@ app.post("/messages", async (req, res) => {
 
   const schemaMessage = Joi.object({
     user: Joi.required(),
-    to: Joi.required().string(),
-    text: Joi.required().string(),
-    type: Joi.required().string().valid("message", "private_message"),
+    to: Joi.string(),
+    text: Joi.string().required(),
+    type: Joi.string().valid("message", "private_message").required(),
   });
 
   const body = {
@@ -95,7 +95,7 @@ app.post("/messages", async (req, res) => {
   };
   const validate = schemaMessage.validate(body, { abortEarly: false });
 
-  if (validate) {
+  if (validate.error) {
     const errors = validate.error.details.map((detail) => detail.message);
     return res.status(422).send(errors);
   }
@@ -121,16 +121,48 @@ app.post("/messages", async (req, res) => {
 
     res.sendStatus(201);
   } catch (err) {
-    res.sendStatus(500);
+    res.status(500).send(err.message);
   }
 });
 
-// app.get("/messages", (req, res) => {
-//   const { user } = req.headers;
-//   const { limit } = req.query;
+app.get("/messages", async (req, res) => {
+  const { user } = req.headers;
+  const { limit } = req.query;
+  const schemaUser = Joi.object({
+    user: Joi.string().required(),
+    limit: Joi.number().min(1).optional(),
+  });
+  const body = {
+    user,
+    limit,
+  };
+  const validate = schemaUser.validate(body, { abortEarly: false });
 
-//   res.send(messages);
-// });
+  if (validate.error) {
+    const errors = validate.error.details.map((detail) => detail.message);
+    return res.status(422).send(errors);
+  }
+
+  try {
+    if (limit === undefined) {
+      console.log(limit)
+      const messages = await db
+        .collection("messages")
+        .find({ $or: [{ to: "Todos" }, { to: user }, { from: user }], })
+        .toArray();
+      return res.status(201).send(messages);
+    }
+    console.log(limit);
+    const messages = await db
+      .collection("messages")
+      .find({ $or: [{ to: "Todos" }, { to: user }, { from: user }], })
+      .limit(Number(limit))
+      .toArray();
+    res.status(201).send(messages);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
 
 // app.post("/status", (req, res) => {
 //   const { user } = req.headers;
