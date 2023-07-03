@@ -196,7 +196,6 @@ app.delete("/messages/:id", async (req, res) => {
     const message = await db
       .collection("messages")
       .findOne({ _id: new ObjectId(id) });
-    console.log(message)
     if (!message) return res.sendStatus(404);
     if (message.from !== user) return res.sendStatus(401);
 
@@ -207,28 +206,71 @@ app.delete("/messages/:id", async (req, res) => {
   }
 });
 
-setInterval(async () => {
-  try {
-    const participants = await db
-      .collection("participants")
-      .find({ lastStatus: { $lt: Date.now() - 10000 } })
-      .toArray();
+app.put("/messages/:id", async (req, res) => {
+  const { to, type, text } = req.body;
+  const { user } = req.headers;
+  const { id } = req.params;
 
-    participants.forEach(async (user) => {
-      await db.collection("participants").deleteOne({ name: user.name });
+  const schemaMessage = Joi.object({
+    user: Joi.required(),
+    to: Joi.string().required(),
+    text: Joi.string().required(),
+    type: Joi.string().valid("message", "private_message").required(),
+  });
 
-      await db.collection("messages").insertOne({
-        from: user.name,
-        to: "Todos",
-        text: "sai da sala...",
-        type: "status",
-        time: dayjs().locale("pt-br").format("HH:mm:ss"),
-      });
-    });
-  } catch (err) {
-    res.sendStatus(500).send(err.message);
+  const body = {
+    to,
+    text,
+    type,
+    user,
+  };
+  const validate = schemaMessage.validate(body, { abortEarly: false });
+
+  if (validate.error) {
+    const errors = validate.error.details.map((detail) => detail.message);
+    return res.status(422).send(errors);
   }
-}, 15000);
+
+  try {
+    const message = await db
+      .collection("messages")
+      .findOne({ _id: new ObjectId(id) });
+      
+    if (!message) return res.sendStatus(404);
+    if (message.from !== user)
+      return res.status(401).send("Você não é o dono da mensagem");
+
+    await db
+      .collection("messages")
+      .updateOne({ _id: new ObjectId(id) }, { $set: { to, text, type } });
+    res.sendStatus(200);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+// setInterval(async () => {
+//   try {
+//     const participants = await db
+//       .collection("participants")
+//       .find({ lastStatus: { $lt: Date.now() - 10000 } })
+//       .toArray();
+
+//     participants.forEach(async (user) => {
+//       await db.collection("participants").deleteOne({ name: user.name });
+
+//       await db.collection("messages").insertOne({
+//         from: user.name,
+//         to: "Todos",
+//         text: "sai da sala...",
+//         type: "status",
+//         time: dayjs().locale("pt-br").format("HH:mm:ss"),
+//       });
+//     });
+//   } catch (err) {
+//     res.sendStatus(500).send(err.message);
+//   }
+// }, 15000);
 
 const PORT = 5000;
 app.listen(PORT, () => {
