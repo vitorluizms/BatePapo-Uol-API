@@ -51,14 +51,12 @@ app.post("/participants", async (req, res) => {
       lastStatus: Date.now(),
     });
 
-    const currentHour = dayjs().locale("pt-br").format("HH:mm:ss");
-
     await db.collection("messages").insertOne({
       from: name,
       to: "Todos",
       text: "entra na sala...",
       type: "status",
-      time: currentHour,
+      time: dayjs().locale("pt-br").format("HH:mm:ss"),
     });
 
     res.sendStatus(201);
@@ -105,18 +103,15 @@ app.post("/messages", async (req, res) => {
       .collection("participants")
       .findOne({ name: user });
 
-    if (!userValid) {
+    if (!userValid)
       return res.status(422).send("Usuário deslogado, faça login!");
-    }
-
-    const currentHour = dayjs().locale("pt-br").format("HH:mm:ss");
 
     await db.collection("messages").insertOne({
       from: user,
       to,
       text,
       type,
-      time: currentHour,
+      time: dayjs().locale("pt-br").format("HH:mm:ss"),
     });
 
     res.sendStatus(201);
@@ -145,17 +140,15 @@ app.get("/messages", async (req, res) => {
 
   try {
     if (limit === undefined) {
-      console.log(limit)
       const messages = await db
         .collection("messages")
-        .find({ $or: [{ to: "Todos" }, { to: user }, { from: user }], })
+        .find({ $or: [{ to: "Todos" }, { to: user }, { from: user }] })
         .toArray();
       return res.status(200).send(messages);
     }
-    console.log(limit);
     const messages = await db
       .collection("messages")
-      .find({ $or: [{ to: "Todos" }, { to: user }, { from: user }], })
+      .find({ $or: [{ to: "Todos" }, { to: user }, { from: user }] })
       .limit(Number(limit))
       .toArray();
     res.status(200).send(messages);
@@ -164,9 +157,56 @@ app.get("/messages", async (req, res) => {
   }
 });
 
-// app.post("/status", (req, res) => {
-//   const { user } = req.headers;
-// });
+app.post("/status", async (req, res) => {
+  const { user } = req.headers;
+  const schemaStatus = Joi.object({
+    user: Joi.string().required(),
+  });
+  const object = { user };
+
+  const validate = schemaStatus.validate(object, { abortEarly: false });
+  if (validate.error) {
+    const errors = validate.error.details.map((detail) => detail.message);
+    return res.status(404).send(errors);
+  }
+  try {
+    const userValid = await db
+      .collection("participants")
+      .findOne({ name: user });
+
+    if (!userValid) return res.status(404).send("Usuário não encontrado!");
+
+    const updateStatus = await db
+      .collection("participants")
+      .updateOne({ name: user }, { $set: { lastStatus: Date.now() } });
+    res.sendStatus(200);
+  } catch (err) {
+    res.status(500).send(err.message);
+  }
+});
+
+setInterval(async () => {
+  try {
+    const participants = await db
+      .collection("participants")
+      .find({ lastStatus: { $lt: Date.now() - 10000 } })
+      .toArray();
+
+    participants.forEach(async (user) => {
+      await db.collection("participants").deleteOne({ name: user.name });
+
+      await db.collection("messages").insertOne({
+        from: user.name,
+        to: "Todos",
+        text: "sai da sala...",
+        type: "status",
+        time: dayjs().locale("pt-br").format("HH:mm:ss"),
+      });
+    });
+  } catch (err) {
+    res.sendStatus(500)
+  }
+}, 15000);
 
 const PORT = 5000;
 app.listen(PORT, () => {
