@@ -82,7 +82,7 @@ app.post("/messages", async (req, res) => {
 
   const schemaMessage = Joi.object({
     user: Joi.required(),
-    to: Joi.string(),
+    to: Joi.string().required(),
     text: Joi.string().required(),
     type: Joi.string().valid("message", "private_message").required(),
   });
@@ -106,7 +106,7 @@ app.post("/messages", async (req, res) => {
       .findOne({ name: user });
 
     if (!userValid) {
-      return res.sendStatus(422);
+      return res.status(422).send("Usuário deslogado, faça login!");
     }
 
     const currentHour = dayjs().locale("pt-br").format("HH:mm:ss");
