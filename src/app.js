@@ -30,7 +30,7 @@ let messages = [];
 //Funções (endpoints)
 
 app.post("/participants", async (req, res) => {
-  const { name } = req.body;
+  let { name } = req.body;
   const schemaParticipant = Joi.object({
     name: Joi.string().required(),
   });
