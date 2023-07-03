@@ -4,6 +4,7 @@ import dayjs from "dayjs";
 import { MongoClient } from "mongodb";
 import dotenv from "dotenv";
 import Joi from "joi";
+import { stripHtml } from "string-strip-html";
 
 //Criação do app
 const app = express();
@@ -40,6 +41,8 @@ app.post("/participants", async (req, res) => {
     const errors = validate.error.details.map((detail) => detail.message);
     return res.status(422).send(errors);
   }
+
+  name = stripHtml(name).result.trim();
 
   try {
     const user = await db.collection("participants").findOne({ name: name });
@@ -107,10 +110,10 @@ app.post("/messages", async (req, res) => {
       return res.status(422).send("Usuário deslogado, faça login!");
 
     await db.collection("messages").insertOne({
-      from: user,
-      to,
-      text,
-      type,
+      from: stripHtml(user).result.trim(),
+      to: stripHtml(to).result.trim(),
+      text: stripHtml(text).result.trim(),
+      type: stripHtml(type).result.trim(),
       time: dayjs().locale("pt-br").format("HH:mm:ss"),
     });
 
@@ -204,7 +207,7 @@ setInterval(async () => {
       });
     });
   } catch (err) {
-    res.sendStatus(500)
+    res.sendStatus(500);
   }
 }, 15000);
 
