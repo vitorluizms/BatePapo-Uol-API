@@ -24,8 +24,6 @@ try {
 }
 
 const db = mongoClient.db();
-let participants = [];
-let messages = [];
 
 
 //Funções (endpoints)
